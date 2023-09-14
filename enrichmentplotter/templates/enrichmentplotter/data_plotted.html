@@ -1,0 +1,35 @@
+{% extends "base_generic.html" %}
+
+
+{% block content %}
+
+  <h1>Query items</h1>
+  <p>
+	<h4>Total : {{query_length}}</h4>
+	<h4>Not annotated : {{not_annotated_query_num}}</h4>
+  </p>
+  
+    <h1>Background items</h1>
+  <p>
+	<h4>Total : {{background_length}}</h4>
+	<h4>Not annotated : {{not_annotated_background_num}}</h4>
+  </p>
+
+
+<form action="" method="post">
+  {% csrf_token %}
+  <table>
+    {{ form.as_table }}
+  </table>
+  <input type="submit" value="Submit" />
+</form>
+
+  <a href="{% url 'data_plotted' input_instance_id  %}"><button type="button" class="btn btn-primary">Plot data</button></button></a>
+<p>
+<body>
+    <img src="data:image/png;base64,{{ plot }}" alt="No significant terms found" class="blog-image">
+</body>
+</p>
+
+  
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base_generic.html" %}
+
+{% block sidebar %}
+	{% if user.is_authenticated %}
+	<li>User: {{ user.get_username }}</li>
+	<li><a href="{% url 'logout' %}?next={{ request.path }}">Logout</a></li>
+	{% else %}
+	<li><a href="{% url 'login' %}?next={{ request.path }}">Login</a></li>
+	{% endif %}
+    {% if perms.enrichmentplotter.modify_data %}
+	<li>User: {{ user.get_username }}</li>
+	<li><a href="{% url 'upload_gaf' %}">Upload GAF file</a></li>
+	{% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1>GO enrichment analysis methods</h1>
+  <p>
+    Select an application
+	
+    <em></em>!
+	<li><a href="{% url 'input_data' %}">Calculate GO enrichment</a></li>
+  </p>
+{% endblock %}
