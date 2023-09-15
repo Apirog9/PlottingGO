@@ -10,15 +10,19 @@ import requests, sys
 
 
 def get_by_API(term_id):
-    
+    '''
+    Accessory function
+    Attempt to retrieve a name for a GO term using QuickGO REST API 
+    '''
+    # create URL and get response
     requestURL = "https://www.ebi.ac.uk/QuickGO/services/ontology/go/terms/" +term_id
     r = requests.get(requestURL, headers={ "Accept" : "application/json"})
+    # if response is ok, get name from json
     if r.ok:
-        print(r)
         data = json.loads(r.text)
         name = data["results"][0]["name"]
+    # if something went wrong, return name as None
     else:
-        print(r)
         r.raise_for_status()
         sys.exit()
         name = None
@@ -26,10 +30,12 @@ def get_by_API(term_id):
     return name
     
     
-
-
 def create_tsv(gafpath,mapping_dict):
     '''
+    Trensforms raw gaf file to identifier:terms pairs. such data are easily accessible and
+    can be stored as JSON strings in sqlite database
+    
+    
     Parameters
     ----------
     gafpath : path to gaf file
@@ -44,10 +50,15 @@ def create_tsv(gafpath,mapping_dict):
     json object with protein to BP mapping
     json object with protein to MF mapping
     json object with protein to CC mapping
+    json object with updated GO identifier : name dictionary
 
     '''
     
     def getmap(key,dictionary):
+        '''
+        Accessory function
+        simple retrieve dictionary value or None if key not exist
+        '''
         try:
             value = dictionary[key]
         except KeyError:
@@ -55,9 +66,18 @@ def create_tsv(gafpath,mapping_dict):
         return value
     
     def check_dict(go_nums,mapping_dict):
+        '''
+        Accessory function
+        Check completness of current GO identifier : GO term name dictionary
+        try to update dictionary using QuickGO REST API 
+        Returns
+        updated GO identifier : GO name dictionary
+        '''
+        # check for non-existing identifiers
         current = list(mapping_dict.keys())
         novel_ids = [x for x in go_nums if not x in current]
         for go_term in novel_ids:
+        # update if name retireval succeed
             newname = get_by_API(go_term)
             if newname:
                 mapping_dict[go_term] = get_by_API(go_term)
@@ -66,7 +86,7 @@ def create_tsv(gafpath,mapping_dict):
         
         
     
-    #write tsv and load it back as dataframe
+    #write tsv-like form of gaf file and load it back as dataframe
     oldfile = open(gafpath,'r').read().splitlines()
     newfile = gafpath.split('/')[-1].removesuffix('.gaf')+'.tsv'
     with open(newfile,'w') as output:
@@ -75,19 +95,24 @@ def create_tsv(gafpath,mapping_dict):
             if line.startswith('!'):
                 pass
             else:
-               output.write(line+'\n')
-                
+               output.write(line+'\n')      
     ontology_dataframe = pd.read_csv(newfile, sep='\t')
-    # remove non-protein hits, thay need special treatment
+    
+    # remove non-protein hits, they need special treatment, not yet implemented
     ontology_dataframe = ontology_dataframe[ontology_dataframe['molecule_type'] == 'protein']
-    # remove negative mappings
+    # fill NAs with empty strings in GO_function (reference like 'colocalizes_to') column
     ontology_dataframe['GO_function'] = ontology_dataframe['GO_function'].fillna('')
+    # remove negative mappings, they need special treatment, not yet implemented
     ontology_dataframe = ontology_dataframe[~ontology_dataframe['GO_function'].str.contains('NOT')]
 
-    #translate to names    
+    #translate to names
+    # get unique numerical ontology identifiers
     ontology_ids = list(ontology_dataframe['GO_term'].unique())
+    # load dictionary from JSON string
     mapping_dict = json.loads(mapping_dict)
+    # check name dictionary completness and if possible update by QuickGO REST API
     mapping_dict = check_dict(ontology_ids,mapping_dict)
+    # get names
     ontology_dataframe['GO_term_name'] =  ontology_dataframe['GO_term'].apply(getmap,args=[mapping_dict])
     
     #split to term types
@@ -104,6 +129,7 @@ def create_tsv(gafpath,mapping_dict):
     #prepare dictionaries and transform to jsons
     gene_BP_dict = {}
     for gene in genes:
+        print(gene)
         dataslice = frame_BP[frame_BP['Gene']==gene]
         terms = list(dataslice['GO_term_name'])
         gene_BP_dict[gene] = list(set(terms))
@@ -111,6 +137,7 @@ def create_tsv(gafpath,mapping_dict):
     
     gene_MF_dict = {}
     for gene in genes:
+        print(gene)
         dataslice = frame_MF[frame_MF['Gene']==gene]
         terms = list(dataslice['GO_term_name'])
         gene_MF_dict[gene] = list(set(terms))
@@ -118,6 +145,7 @@ def create_tsv(gafpath,mapping_dict):
     
     gene_CC_dict = {}
     for gene in genes:
+        print(gene)
         dataslice = frame_CC[frame_CC['Gene']==gene]
         terms = list(dataslice['GO_term_name'])
         gene_CC_dict[gene] = list(set(terms))
@@ -125,6 +153,7 @@ def create_tsv(gafpath,mapping_dict):
     
     protein_BP_dict = {}
     for protein in proteins:
+        print(protein)
         dataslice = frame_BP[frame_BP['Identifier']==protein]
         terms = list(dataslice['GO_term_name'])
         protein_BP_dict[protein] = list(set(terms))
@@ -132,6 +161,7 @@ def create_tsv(gafpath,mapping_dict):
     
     protein_MF_dict = {}
     for protein in proteins:
+        print(protein)
         dataslice = frame_MF[frame_MF['Identifier']==protein]
         terms = list(dataslice['GO_term_name'])
         protein_MF_dict[protein] = list(set(terms))
@@ -139,6 +169,7 @@ def create_tsv(gafpath,mapping_dict):
     
     protein_CC_dict = {}
     for protein in proteins:
+        print(protein)
         dataslice = frame_CC[frame_CC['Identifier']==protein]
         terms = list(dataslice['GO_term_name'])
         protein_CC_dict[protein] = list(set(terms))
@@ -150,6 +181,13 @@ def create_tsv(gafpath,mapping_dict):
 
 
 def get_namedict(name_dict_path):
+    '''
+    transform csv file to json object containing GO identifier:GO term name dictionary
+    used to populate initial dictionary
+    name_dict_path - path to csv file
+    Returns:
+    json object with initial GO identifier : name dictionary
+    '''
     mapping = pd.read_csv(name_dict_path, sep = ' ')
     GO_identifiers = mapping["identifier"].unique()
     mapping_dict = {}

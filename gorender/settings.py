@@ -30,7 +30,8 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
-
+# add enricmentplotter app (GO term enrichment)
+# add bootstrap5 for future use
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

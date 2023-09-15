@@ -18,7 +18,10 @@ from django.contrib import admin
 from django.urls import path
 from django.urls import include
 from django.views.generic import RedirectView
-
+# Register admin site
+# Add enrichmentplotter url patterns
+# Add permanent redirect
+# Add login possibility (account must be created by admin)
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('enrichmentplotter/', include('enrichmentplotter.urls')),
